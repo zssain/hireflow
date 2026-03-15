@@ -1,0 +1,170 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper: check if user is authenticated
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    // ==========================================
+    // SERVER-CONTROLLED MUTATIONS
+    // All writes go through Next.js API routes
+    // using Firebase Admin SDK (bypasses rules).
+    //
+    // Client-side reads are allowed for
+    // authenticated users on tenant-scoped data.
+    // The useRealtime hook uses onSnapshot which
+    // requires client-side read permissions.
+    // ==========================================
+
+    // Users - read own profile
+    match /users/{userId} {
+      allow read: if isAuth() && request.auth.uid == userId;
+      allow write: if false;
+    }
+
+    // Tenants - authenticated users can read (filtered by membership in app layer)
+    match /tenants/{tenantId} {
+      allow read: if isAuth();
+      allow write: if false;
+    }
+
+    // Memberships - authenticated users can read (filtered in app layer)
+    match /memberships/{membershipId} {
+      allow read: if isAuth();
+      allow write: if false;
+    }
+
+    // Subscriptions
+    match /subscriptions/{tenantId} {
+      allow read: if isAuth();
+      allow write: if false;
+    }
+
+    // Usage Counters
+    match /usage_counters/{counterId} {
+      allow read: if isAuth();
+      allow write: if false;
+    }
+
+    // Pipeline Templates
+    match /pipeline_templates/{templateId} {
+      allow read: if isAuth();
+      allow write: if false;
+    }
+
+    // Jobs - read for authenticated (public jobs handled by API)
+    match /jobs/{jobId} {
+      allow read: if isAuth();
+      allow write: if false;
+    }
+
+    // Job Pipelines
+    match /job_pipelines/{pipelineId} {
+      allow read: if isAuth();
+      allow write: if false;
+    }
+
+    // Candidates
+    match /candidates/{candidateId} {
+      allow read: if isAuth();
+      allow write: if false;
+    }
+
+    // Applications
+    match /applications/{applicationId} {
+      allow read: if isAuth();
+      allow write: if false;
+    }
+
+    // Application Processing
+    match /application_processing/{processingId} {
+      allow read: if isAuth();
+      allow write: if false;
+    }
+
+    // Interviews
+    match /interviews/{interviewId} {
+      allow read: if isAuth();
+      allow write: if false;
+    }
+
+    // Offers
+    match /offers/{offerId} {
+      allow read: if isAuth();
+      allow write: if false;
+    }
+
+    // Onboarding Plans
+    match /onboarding_plans/{planId} {
+      allow read: if isAuth();
+      allow write: if false;
+    }
+
+    // Onboarding Tasks
+    match /onboarding_tasks/{taskId} {
+      allow read: if isAuth();
+      allow write: if false;
+    }
+
+    // Notifications - read for real-time updates
+    match /notifications/{notificationId} {
+      allow read: if isAuth();
+      allow write: if false;
+    }
+
+    // Workflow Rules
+    match /workflow_rules/{ruleId} {
+      allow read: if isAuth();
+      allow write: if false;
+    }
+
+    // Rule Action Logs
+    match /rule_action_logs/{logId} {
+      allow read: if isAuth();
+      allow write: if false;
+    }
+
+    // Analytics Events
+    match /analytics_events/{eventId} {
+      allow read: if isAuth();
+      allow write: if false;
+    }
+
+    // Daily Metrics
+    match /daily_metrics/{metricId} {
+      allow read: if isAuth();
+      allow write: if false;
+    }
+
+    // Audit Logs
+    match /audit_logs/{auditId} {
+      allow read: if isAuth();
+      allow write: if false;
+    }
+
+    // Email Templates
+    match /email_templates/{templateId} {
+      allow read: if isAuth();
+      allow write: if false;
+    }
+
+    // Calendar Connections
+    match /calendar_connections/{connectionId} {
+      allow read: if isAuth();
+      allow write: if false;
+    }
+
+    // Invite Tokens - server-only
+    match /invite_tokens/{tokenId} {
+      allow read, write: if false;
+    }
+
+    // Catch-all: deny everything else
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
