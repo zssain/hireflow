@@ -1,5 +1,4 @@
 import { initializeApp, getApps, getApp, type FirebaseApp } from "firebase/app";
-import { getAuth, type Auth } from "firebase/auth";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -11,7 +10,6 @@ const firebaseConfig = {
 };
 
 let _app: FirebaseApp | undefined;
-let _auth: Auth | undefined;
 
 export function getClientApp(): FirebaseApp {
   if (_app) return _app;
@@ -19,21 +17,11 @@ export function getClientApp(): FirebaseApp {
   return _app;
 }
 
-export function getClientAuth(): Auth {
-  if (_auth) return _auth;
-  _auth = getAuth(getClientApp());
-  return _auth;
+// Auth must be loaded dynamically to avoid localStorage SSR crash
+let _authPromise: Promise<import("firebase/auth").Auth> | undefined;
+
+export function getClientAuth(): Promise<import("firebase/auth").Auth> {
+  if (_authPromise) return _authPromise;
+  _authPromise = import("firebase/auth").then((mod) => mod.getAuth(getClientApp()));
+  return _authPromise;
 }
-
-// Lazy exports — only initialize when accessed at runtime (not at build/SSR time)
-export const clientApp = new Proxy({} as FirebaseApp, {
-  get(_, prop) {
-    return (getClientApp() as unknown as Record<string | symbol, unknown>)[prop];
-  },
-});
-
-export const clientAuth = new Proxy({} as Auth, {
-  get(_, prop) {
-    return (getClientAuth() as unknown as Record<string | symbol, unknown>)[prop];
-  },
-});

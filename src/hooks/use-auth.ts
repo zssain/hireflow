@@ -1,10 +1,9 @@
 "use client";
 
 import { useEffect } from "react";
-import { onAuthStateChanged, signOut } from "firebase/auth";
-import { getClientAuth } from "@/lib/firebase/client";
 import { useAuthStore } from "@/stores/auth.store";
 import { useTenantStore } from "@/stores/tenant.store";
+import { getClientAuth } from "@/lib/firebase/client";
 
 export function useAuth() {
   const {
@@ -16,41 +15,49 @@ export function useAuth() {
     setFirebaseUser,
     setSession,
     clearAuth,
-    setLoading,
   } = useAuthStore();
 
   useEffect(() => {
-    const auth = getClientAuth();
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      setFirebaseUser(user);
+    useTenantStore.getState().hydrate();
 
-      if (user) {
-        try {
-          const token = await user.getIdToken();
-          const res = await fetch("/api/auth/session", {
-            method: "POST",
-            headers: { Authorization: `Bearer ${token}` },
-          });
+    let unsubscribe: (() => void) | undefined;
 
-          if (res.ok) {
-            const data = await res.json();
-            setSession(data.user, data.memberships);
-          } else {
+    getClientAuth().then(async (auth) => {
+      const { onAuthStateChanged } = await import("firebase/auth");
+
+      unsubscribe = onAuthStateChanged(auth, async (user) => {
+        setFirebaseUser(user);
+
+        if (user) {
+          try {
+            const token = await user.getIdToken();
+            const res = await fetch("/api/auth/session", {
+              method: "POST",
+              headers: { Authorization: `Bearer ${token}` },
+            });
+
+            if (res.ok) {
+              const data = await res.json();
+              setSession(data.user, data.memberships);
+            } else {
+              clearAuth();
+            }
+          } catch {
             clearAuth();
           }
-        } catch {
+        } else {
           clearAuth();
         }
-      } else {
-        clearAuth();
-      }
+      });
     });
 
-    return () => unsubscribe();
-  }, [setFirebaseUser, setSession, clearAuth, setLoading]);
+    return () => unsubscribe?.();
+  }, [setFirebaseUser, setSession, clearAuth]);
 
   const logout = async () => {
-    await signOut(getClientAuth());
+    const { signOut } = await import("firebase/auth");
+    const auth = await getClientAuth();
+    await signOut(auth);
     useTenantStore.getState().clearTenant();
     clearAuth();
   };

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
+import { ToasterProvider } from "@/components/shared/toaster-provider";
 
 export const metadata: Metadata = {
   title: "HireFlow",
@@ -22,7 +22,7 @@ export default function RootLayout({
       </head>
       <body>
         {children}
-        <Toaster position="bottom-right" />
+        <ToasterProvider />
       </body>
     </html>
   );
