@@ -28,9 +28,9 @@ export default function OffersPage() {
 
   useEffect(() => {
     async function load() {
-      if (!tenantId) return;
+      if (!tenantId) { setLoading(false); return; }
       const token = await getToken();
-      if (!token) return;
+      if (!token) { setLoading(false); return; }
       const res = await globalThis.fetch(`/api/offers?tenant_id=${tenantId}`, { headers: { Authorization: `Bearer ${token}` } });
       if (res.ok) { const data = await res.json(); setOffers(data.offers); }
       setLoading(false);

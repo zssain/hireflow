@@ -27,9 +27,9 @@ export default function InterviewsPage() {
 
   useEffect(() => {
     async function load() {
-      if (!tenantId) return;
+      if (!tenantId) { setLoading(false); return; }
       const token = await getToken();
-      if (!token) return;
+      if (!token) { setLoading(false); return; }
 
       const res = await globalThis.fetch(`/api/interviews/list?tenant_id=${tenantId}`, {
         headers: { Authorization: `Bearer ${token}` },

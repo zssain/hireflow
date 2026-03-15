@@ -17,9 +17,9 @@ export default function RuleSettingsPage() {
 
   useEffect(() => {
     async function load() {
-      if (!tenantId) return;
+      if (!tenantId) { setLoading(false); return; }
       const token = await getToken();
-      if (!token) return;
+      if (!token) { setLoading(false); return; }
       const res = await globalThis.fetch(`/api/rules?tenant_id=${tenantId}`, { headers: { Authorization: `Bearer ${token}` } });
       if (res.ok) { const data = await res.json(); setRules(data.rules); }
     }

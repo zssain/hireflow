@@ -30,9 +30,9 @@ export default function CandidatesPage() {
 
   useEffect(() => {
     async function fetch() {
-      if (!tenantId) return;
+      if (!tenantId) { setLoading(false); return; }
       const token = await getToken();
-      if (!token) return;
+      if (!token) { setLoading(false); return; }
 
       const res = await globalThis.fetch(`/api/applications?tenant_id=${tenantId}`, {
         headers: { Authorization: `Bearer ${token}` },

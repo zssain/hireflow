@@ -29,7 +29,7 @@ export default function PipelineSettingsPage() {
 
   useEffect(() => {
     async function load() {
-      if (!tenantId) return;
+      if (!tenantId) { setLoading(false); return; }
       // In production, fetch from /api/pipelines endpoint
       // For now, show default
       setTemplates([

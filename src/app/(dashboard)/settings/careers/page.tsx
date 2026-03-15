@@ -22,9 +22,9 @@ export default function CareerPageSettingsPage() {
 
   useEffect(() => {
     async function load() {
-      if (!tenantId) return;
+      if (!tenantId) { setLoading(false); return; }
       const token = await getToken();
-      if (!token) return;
+      if (!token) { setLoading(false); return; }
 
       const res = await globalThis.fetch(`/api/tenant/settings?tenant_id=${tenantId}`, {
         headers: { Authorization: `Bearer ${token}` },

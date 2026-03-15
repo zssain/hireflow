@@ -32,9 +32,9 @@ export default function JobsPage() {
 
   useEffect(() => {
     async function fetchJobs() {
-      if (!tenantId) return;
+      if (!tenantId) { setLoading(false); return; }
       const token = await getToken();
-      if (!token) return;
+      if (!token) { setLoading(false); return; }
 
       const res = await fetch(`/api/jobs?tenant_id=${tenantId}`, {
         headers: { Authorization: `Bearer ${token}` },

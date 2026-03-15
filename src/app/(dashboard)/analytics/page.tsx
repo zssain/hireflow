@@ -17,9 +17,9 @@ export default function AnalyticsPage() {
 
   useEffect(() => {
     async function load() {
-      if (!tenantId) return;
+      if (!tenantId) { setLoading(false); return; }
       const token = await getToken();
-      if (!token) return;
+      if (!token) { setLoading(false); return; }
       const [m, f] = await Promise.all([
         globalThis.fetch(`/api/analytics/dashboard?tenant_id=${tenantId}`, { headers: { Authorization: `Bearer ${token}` } }),
         globalThis.fetch(`/api/analytics/funnel?tenant_id=${tenantId}`, { headers: { Authorization: `Bearer ${token}` } }),

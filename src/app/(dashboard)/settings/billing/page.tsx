@@ -24,9 +24,9 @@ export default function BillingSettingsPage() {
 
   useEffect(() => {
     async function load() {
-      if (!tenantId) return;
+      if (!tenantId) { setLoading(false); return; }
       const token = await getToken();
-      if (!token) return;
+      if (!token) { setLoading(false); return; }
 
       const [tenantRes, metricsRes] = await Promise.all([
         globalThis.fetch(`/api/tenant/settings?tenant_id=${tenantId}`, { headers: { Authorization: `Bearer ${token}` } }),

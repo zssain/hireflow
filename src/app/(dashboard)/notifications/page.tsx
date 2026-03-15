@@ -23,9 +23,9 @@ export default function NotificationsPage() {
 
   useEffect(() => {
     async function load() {
-      if (!tenantId) return;
+      if (!tenantId) { setLoading(false); return; }
       const token = await getToken();
-      if (!token) return;
+      if (!token) { setLoading(false); return; }
       const res = await globalThis.fetch(`/api/notifications?tenant_id=${tenantId}`, { headers: { Authorization: `Bearer ${token}` } });
       if (res.ok) { const data = await res.json(); setNotifications(data.notifications); setUnreadCount(data.unread_count); }
       setLoading(false);
