@@ -84,7 +84,7 @@ export default function JobDetailPage() {
   };
 
   if (loading) return <LoadingSkeleton variant="detail" />;
-  if (!job) return <div>Job not found</div>;
+  if (!job) return <div className="flex min-h-[400px] items-center justify-center text-muted-foreground">Job not found</div>;
 
   const statusColors: Record<string, string> = {
     draft: "bg-zinc-100 text-zinc-700",

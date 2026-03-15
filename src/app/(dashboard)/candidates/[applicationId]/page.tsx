@@ -110,7 +110,7 @@ export default function CandidateDetailPage() {
   };
 
   if (loading) return <LoadingSkeleton variant="detail" />;
-  if (!application) return <div>Application not found</div>;
+  if (!application) return <div className="flex min-h-[400px] items-center justify-center text-muted-foreground">Application not found</div>;
 
   return (
     <div className="space-y-6">

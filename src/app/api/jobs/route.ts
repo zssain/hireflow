@@ -5,6 +5,7 @@ import { assertPlanQuota } from "@/lib/plan-gates/quotas";
 import { createJobSchema } from "@/lib/validators/schemas";
 import { createJob, listJobs } from "@/modules/jobs/job.service";
 import { getTenant } from "@/modules/tenants/tenant.service";
+import { handleApiError } from "@/lib/utils/api-helpers";
 
 export const dynamic = "force-dynamic";
 
@@ -59,11 +60,6 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ job_id: job.job_id, public_id: job.public_id, status: job.status });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Internal server error";
-    let status = 500;
-    if (message.includes("permission")) status = 403;
-    if (message.includes("Quota")) status = 402;
-    if (message.includes("not found")) status = 404;
-    return NextResponse.json({ error: message }, { status });
+    return handleApiError(error);
   }
 }

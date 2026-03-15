@@ -48,7 +48,7 @@ export default function OfferDetailPage() {
   };
 
   if (loading) return <LoadingSkeleton variant="detail" />;
-  if (!offer) return <div>Offer not found</div>;
+  if (!offer) return <div className="flex min-h-[400px] items-center justify-center text-muted-foreground">Offer not found</div>;
 
   const fields = offer.generated_fields as Record<string, string>;
 

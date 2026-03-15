@@ -83,7 +83,7 @@ export default function EditJobPage() {
   };
 
   if (loading) return <LoadingSkeleton variant="detail" />;
-  if (!job) return <div>Job not found</div>;
+  if (!job) return <div className="flex min-h-[400px] items-center justify-center text-muted-foreground">Job not found</div>;
 
   return (
     <div className="space-y-6">
