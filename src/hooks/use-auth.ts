@@ -39,6 +39,18 @@ export function useAuth() {
             if (res.ok) {
               const data = await res.json();
               setSession(data.user, data.memberships);
+
+              // Auto-select first tenant if none is selected
+              const tenantStore = useTenantStore.getState();
+              if (!tenantStore.activeTenantId && data.memberships.length > 0) {
+                const first = data.memberships[0];
+                tenantStore.setActiveTenant(
+                  first.tenant_id,
+                  data.user.name ?? "Workspace",
+                  first.membership_id,
+                  first.role
+                );
+              }
             } else {
               clearAuth();
             }

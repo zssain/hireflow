@@ -27,9 +27,13 @@ export default function DashboardPage() {
 
   useEffect(() => {
     async function load() {
-      if (!tenantId) return;
+      if (!tenantId) {
+        // No tenant selected yet — show empty dashboard instead of infinite loading
+        setLoading(false);
+        return;
+      }
       const token = await getToken();
-      if (!token) return;
+      if (!token) { setLoading(false); return; }
 
       const [metricsRes, funnelRes, appsRes] = await Promise.all([
         globalThis.fetch(`/api/analytics/dashboard?tenant_id=${tenantId}`, { headers: { Authorization: `Bearer ${token}` } }),
