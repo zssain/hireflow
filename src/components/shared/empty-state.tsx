@@ -1,7 +1,7 @@
 "use client";
 
-import { type LucideIcon } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { type LucideIcon, ArrowRight } from "lucide-react";
+import { motion } from "motion/react";
 
 interface EmptyStateProps {
   icon?: LucideIcon;
@@ -11,17 +11,23 @@ interface EmptyStateProps {
   onAction?: () => void;
 }
 
-export function EmptyState({ icon: Icon, title, description, actionLabel, onAction }: EmptyStateProps) {
+export function EmptyState({ title, description, actionLabel, onAction }: EmptyStateProps) {
   return (
-    <div className="flex flex-col items-center justify-center py-16 text-center">
-      {Icon && <Icon className="mb-4 h-12 w-12 text-muted-foreground/50" />}
-      <h3 className="text-lg font-semibold">{title}</h3>
-      <p className="mt-1 max-w-sm text-sm text-muted-foreground">{description}</p>
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="py-16 text-center"
+    >
+      <p className="text-sm font-medium">{title}</p>
+      <p className="text-[13px] text-muted-foreground mt-1">{description}</p>
       {actionLabel && onAction && (
-        <Button className="mt-4" onClick={onAction}>
-          {actionLabel}
-        </Button>
+        <button
+          onClick={onAction}
+          className="mt-4 inline-flex items-center gap-2 text-[13px] font-medium hover:underline underline-offset-4 transition-all"
+        >
+          {actionLabel} <ArrowRight className="h-3 w-3" />
+        </button>
       )}
-    </div>
+    </motion.div>
   );
 }
