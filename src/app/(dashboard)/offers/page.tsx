@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { FileText } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -8,8 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { OfferStatus } from "@/components/offers/offer-status";
 import { EmptyState } from "@/components/shared/empty-state";
 import { LoadingSkeleton } from "@/components/shared/loading-skeleton";
-import { useAuth } from "@/hooks/use-auth";
-import { useTenant } from "@/hooks/use-tenant";
+import { useApiQuery } from "@/hooks/use-api-query";
 
 interface OfferSummary {
   offer_id: string;
@@ -20,25 +19,15 @@ interface OfferSummary {
 
 export default function OffersPage() {
   const router = useRouter();
-  const { getToken } = useAuth();
-  const { tenantId } = useTenant();
-  const [offers, setOffers] = useState<OfferSummary[]>([]);
-  const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState("all");
 
-  useEffect(() => {
-    async function load() {
-      if (!tenantId) { setLoading(false); return; }
-      const token = await getToken();
-      if (!token) { setLoading(false); return; }
-      const res = await globalThis.fetch(`/api/offers?tenant_id=${tenantId}`, { headers: { Authorization: `Bearer ${token}` } });
-      if (res.ok) { const data = await res.json(); setOffers(data.offers); }
-      setLoading(false);
-    }
-    load();
-  }, [tenantId, getToken]);
+  const { data: offers, loading } = useApiQuery<OfferSummary[]>("/offers", {
+    transform: (raw: unknown) => (raw as { offers: OfferSummary[] }).offers,
+  });
 
-  const filtered = tab === "all" ? offers : offers.filter(o => o.status === tab);
+  const allOffers = offers ?? [];
+  const filtered = tab === "all" ? allOffers : allOffers.filter((o) => o.status === tab);
+
   if (loading) return <LoadingSkeleton rows={4} />;
 
   return (
@@ -46,7 +35,7 @@ export default function OffersPage() {
       <h1 className="text-2xl font-bold">Offers</h1>
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList>
-          <TabsTrigger value="all">All ({offers.length})</TabsTrigger>
+          <TabsTrigger value="all">All ({allOffers.length})</TabsTrigger>
           <TabsTrigger value="sent">Sent</TabsTrigger>
           <TabsTrigger value="accepted">Accepted</TabsTrigger>
         </TabsList>

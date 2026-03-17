@@ -1,13 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { Check, BarChart3 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { LoadingSkeleton } from "@/components/shared/loading-skeleton";
-import { useAuth } from "@/hooks/use-auth";
-import { useTenant } from "@/hooks/use-tenant";
+import { useApiQuery } from "@/hooks/use-api-query";
 
 const plans = [
   { code: "starter", name: "Starter", price: "$49/mo", features: ["3 active jobs", "2 team members", "50 AI credits"] },
@@ -16,34 +14,12 @@ const plans = [
 ];
 
 export default function BillingSettingsPage() {
-  const { getToken } = useAuth();
-  const { tenantId } = useTenant();
-  const [currentPlan, setCurrentPlan] = useState("starter");
-  const [metrics, setMetrics] = useState<Record<string, number> | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { data: tenantData, loading: tenantLoading } = useApiQuery<Record<string, unknown>>("/tenant/settings");
+  const { data: metrics, loading: metricsLoading } = useApiQuery<Record<string, number>>("/analytics/dashboard");
 
-  useEffect(() => {
-    async function load() {
-      if (!tenantId) { setLoading(false); return; }
-      const token = await getToken();
-      if (!token) { setLoading(false); return; }
+  const currentPlan = (tenantData?.plan_code as string) ?? "starter";
 
-      const [tenantRes, metricsRes] = await Promise.all([
-        globalThis.fetch(`/api/tenant/settings?tenant_id=${tenantId}`, { headers: { Authorization: `Bearer ${token}` } }),
-        globalThis.fetch(`/api/analytics/dashboard?tenant_id=${tenantId}`, { headers: { Authorization: `Bearer ${token}` } }),
-      ]);
-
-      if (tenantRes.ok) {
-        const tenant = await tenantRes.json();
-        setCurrentPlan(tenant.plan_code ?? "starter");
-      }
-      if (metricsRes.ok) setMetrics(await metricsRes.json());
-      setLoading(false);
-    }
-    load();
-  }, [tenantId, getToken]);
-
-  if (loading) return <LoadingSkeleton variant="card" rows={3} />;
+  if (tenantLoading && metricsLoading) return <LoadingSkeleton variant="card" rows={3} />;
 
   return (
     <div className="space-y-6">

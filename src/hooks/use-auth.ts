@@ -1,10 +1,14 @@
 "use client";
 
-import { useEffect } from "react";
+import { useCallback } from "react";
 import { useAuthStore } from "@/stores/auth.store";
 import { useTenantStore } from "@/stores/tenant.store";
 import { getClientAuth } from "@/lib/firebase/client";
 
+/**
+ * Pure store reader — no auth listener setup.
+ * Auth initialization happens once in AuthProvider.
+ */
 export function useAuth() {
   const {
     firebaseUser,
@@ -12,59 +16,8 @@ export function useAuth() {
     memberships,
     isLoading,
     isAuthenticated,
-    setFirebaseUser,
-    setSession,
     clearAuth,
   } = useAuthStore();
-
-  useEffect(() => {
-    useTenantStore.getState().hydrate();
-
-    let unsubscribe: (() => void) | undefined;
-
-    getClientAuth().then(async (auth) => {
-      const { onAuthStateChanged } = await import("firebase/auth");
-
-      unsubscribe = onAuthStateChanged(auth, async (user) => {
-        setFirebaseUser(user);
-
-        if (user) {
-          try {
-            const token = await user.getIdToken();
-            const res = await fetch("/api/auth/session", {
-              method: "POST",
-              headers: { Authorization: `Bearer ${token}` },
-            });
-
-            if (res.ok) {
-              const data = await res.json();
-              setSession(data.user, data.memberships);
-
-              // Auto-select first tenant if none is selected
-              const tenantStore = useTenantStore.getState();
-              if (!tenantStore.activeTenantId && data.memberships.length > 0) {
-                const first = data.memberships[0];
-                tenantStore.setActiveTenant(
-                  first.tenant_id,
-                  data.user.name ?? "Workspace",
-                  first.membership_id,
-                  first.role
-                );
-              }
-            } else {
-              clearAuth();
-            }
-          } catch {
-            clearAuth();
-          }
-        } else {
-          clearAuth();
-        }
-      });
-    });
-
-    return () => unsubscribe?.();
-  }, [setFirebaseUser, setSession, clearAuth]);
 
   const logout = async () => {
     const { signOut } = await import("firebase/auth");
@@ -74,9 +27,11 @@ export function useAuth() {
     clearAuth();
   };
 
-  const getToken = async (): Promise<string | null> => {
-    return firebaseUser?.getIdToken() ?? null;
-  };
+  // Stable getToken — reads current user from store at call time
+  const getToken = useCallback(async (): Promise<string | null> => {
+    const user = useAuthStore.getState().firebaseUser;
+    return user?.getIdToken() ?? null;
+  }, []);
 
   return {
     user: userProfile,

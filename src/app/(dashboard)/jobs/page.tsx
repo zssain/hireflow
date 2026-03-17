@@ -1,16 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Briefcase } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { JobCard } from "@/components/jobs/job-card";
 import { EmptyState } from "@/components/shared/empty-state";
 import { LoadingSkeleton } from "@/components/shared/loading-skeleton";
-import { useAuth } from "@/hooks/use-auth";
-import { useTenant } from "@/hooks/use-tenant";
 import { useMembership } from "@/hooks/use-membership";
+import { useApiQuery } from "@/hooks/use-api-query";
 
 interface JobSummary {
   job_id: string;
@@ -23,33 +22,15 @@ interface JobSummary {
 
 export default function JobsPage() {
   const router = useRouter();
-  const { getToken } = useAuth();
-  const { tenantId } = useTenant();
   const { can } = useMembership();
-  const [jobs, setJobs] = useState<JobSummary[]>([]);
-  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("all");
 
-  useEffect(() => {
-    async function fetchJobs() {
-      if (!tenantId) { setLoading(false); return; }
-      const token = await getToken();
-      if (!token) { setLoading(false); return; }
+  const { data: jobs, loading } = useApiQuery<JobSummary[]>("/jobs", {
+    transform: (raw: unknown) => (raw as { jobs: JobSummary[] }).jobs,
+  });
 
-      const res = await fetch(`/api/jobs?tenant_id=${tenantId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        setJobs(data.jobs);
-      }
-      setLoading(false);
-    }
-    fetchJobs();
-  }, [tenantId, getToken]);
-
-  const filteredJobs = activeTab === "all" ? jobs : jobs.filter((j) => j.status === activeTab);
+  const allJobs = jobs ?? [];
+  const filteredJobs = activeTab === "all" ? allJobs : allJobs.filter((j) => j.status === activeTab);
 
   if (loading) return <LoadingSkeleton variant="card" rows={6} />;
 
@@ -67,10 +48,10 @@ export default function JobsPage() {
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
-          <TabsTrigger value="all">All ({jobs.length})</TabsTrigger>
-          <TabsTrigger value="open">Open ({jobs.filter((j) => j.status === "open").length})</TabsTrigger>
-          <TabsTrigger value="draft">Draft ({jobs.filter((j) => j.status === "draft").length})</TabsTrigger>
-          <TabsTrigger value="closed">Closed ({jobs.filter((j) => j.status === "closed").length})</TabsTrigger>
+          <TabsTrigger value="all">All ({allJobs.length})</TabsTrigger>
+          <TabsTrigger value="open">Open ({allJobs.filter((j) => j.status === "open").length})</TabsTrigger>
+          <TabsTrigger value="draft">Draft ({allJobs.filter((j) => j.status === "draft").length})</TabsTrigger>
+          <TabsTrigger value="closed">Closed ({allJobs.filter((j) => j.status === "closed").length})</TabsTrigger>
         </TabsList>
       </Tabs>
 

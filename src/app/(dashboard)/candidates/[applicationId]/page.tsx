@@ -12,6 +12,7 @@ import { LoadingSkeleton } from "@/components/shared/loading-skeleton";
 import { useAuth } from "@/hooks/use-auth";
 import { useTenant } from "@/hooks/use-tenant";
 import { useMembership } from "@/hooks/use-membership";
+import { useApiQuery, invalidateCache } from "@/hooks/use-api-query";
 
 interface ApplicationData {
   application_id: string;
@@ -48,45 +49,49 @@ export default function CandidateDetailPage() {
 
   const applicationId = params.applicationId as string;
 
+  // This page has sequential fetches (app → job pipeline), so keep useEffect pattern
+  // but with stable getToken
   useEffect(() => {
     async function fetchData() {
       const token = await getToken();
       if (!token || !tenantId) return;
 
-      // Fetch application + scoring data
-      const [appRes, scoreRes] = await Promise.all([
-        globalThis.fetch(`/api/applications?tenant_id=${tenantId}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
-        globalThis.fetch("/api/scoring/run", {
-          method: "POST",
-          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-          body: JSON.stringify({ tenant_id: tenantId, application_id: applicationId }),
-        }),
-      ]);
-
-      if (appRes.ok) {
-        const data = await appRes.json();
-        const app = data.applications.find((a: ApplicationData) => a.application_id === applicationId);
-        if (app) {
-          setApplication(app);
-          // Fetch pipeline stages
-          const jobRes = await globalThis.fetch(`/api/jobs/${app.job_id}?tenant_id=${tenantId}`, {
+      try {
+        const [appRes, scoreRes] = await Promise.all([
+          fetch(`/api/applications/${applicationId}?tenant_id=${tenantId}`, {
             headers: { Authorization: `Bearer ${token}` },
-          });
-          if (jobRes.ok) {
-            const jobData = await jobRes.json();
-            setStages(jobData.pipeline?.stages ?? []);
+          }),
+          fetch("/api/scoring/run", {
+            method: "POST",
+            headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ tenant_id: tenantId, application_id: applicationId }),
+          }),
+        ]);
+
+        if (appRes.ok) {
+          const data = await appRes.json();
+          const app = data.application;
+          if (app) {
+            setApplication(app);
+            const jobRes = await fetch(`/api/jobs/${app.job_id}?tenant_id=${tenantId}`, {
+              headers: { Authorization: `Bearer ${token}` },
+            });
+            if (jobRes.ok) {
+              const jobData = await jobRes.json();
+              setStages(jobData.pipeline?.stages ?? []);
+            }
           }
         }
-      }
 
-      if (scoreRes.ok) {
-        const scoreData = await scoreRes.json();
-        setProcessing(scoreData.processing);
+        if (scoreRes.ok) {
+          const scoreData = await scoreRes.json();
+          setProcessing(scoreData.processing);
+        }
+      } catch (error) {
+        console.error("Candidate detail load error:", error);
+      } finally {
+        setLoading(false);
       }
-
-      setLoading(false);
     }
     fetchData();
   }, [applicationId, tenantId, getToken]);
@@ -95,7 +100,7 @@ export default function CandidateDetailPage() {
     const token = await getToken();
     if (!token || !tenantId) return;
 
-    const res = await globalThis.fetch(`/api/applications/${applicationId}/move-stage`, {
+    const res = await fetch(`/api/applications/${applicationId}/move-stage`, {
       method: "POST",
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       body: JSON.stringify({ tenant_id: tenantId, target_stage_id: stageId }),
@@ -106,6 +111,7 @@ export default function CandidateDetailPage() {
       setApplication((prev) =>
         prev ? { ...prev, current_stage_id: data.new_stage_id, current_stage_name: data.new_stage_name } : prev
       );
+      invalidateCache("/applications");
     }
   };
 
@@ -132,7 +138,6 @@ export default function CandidateDetailPage() {
         </div>
       </div>
 
-      {/* Stage selector */}
       {can("move_pipeline_stages") && stages.length > 0 && (
         <div className="flex items-center gap-3">
           <span className="text-sm font-medium">Stage:</span>

@@ -9,13 +9,16 @@ const PUBLIC_PATHS = [
   "/book",
   "/offer",
   "/invite",
-  "/api/public",
-  "/api/auth",
-  "/api/cron",
 ];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  // API routes are proxied to the Express backend via next.config rewrites
+  // No middleware processing needed for them
+  if (pathname.startsWith("/api/")) {
+    return NextResponse.next();
+  }
 
   // Allow public paths
   if (PUBLIC_PATHS.some((p) => pathname.startsWith(p))) {
@@ -36,19 +39,6 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // For API routes, check Authorization header
-  if (pathname.startsWith("/api/")) {
-    const auth = request.headers.get("authorization");
-    if (!auth?.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    return NextResponse.next();
-  }
-
-  // For dashboard routes, check for Firebase auth cookie/token
-  // Since we use client-side Firebase auth, we rely on the client-side
-  // auth guard in the dashboard layout. The middleware just ensures
-  // the basic structure is valid.
   return NextResponse.next();
 }
 

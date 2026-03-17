@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Plus, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,6 +26,7 @@ import { LoadingSkeleton } from "@/components/shared/loading-skeleton";
 import { useAuth } from "@/hooks/use-auth";
 import { useTenant } from "@/hooks/use-tenant";
 import { useMembership } from "@/hooks/use-membership";
+import { useApiQuery, invalidateCache } from "@/hooks/use-api-query";
 
 interface Member {
   membership_id: string;
@@ -45,32 +46,17 @@ export default function TeamSettingsPage() {
   const { getToken } = useAuth();
   const { tenantId } = useTenant();
   const { isAdmin } = useMembership();
-  const [members, setMembers] = useState<Member[]>([]);
-  const [loading, setLoading] = useState(true);
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("recruiter");
   const [inviting, setInviting] = useState(false);
   const [open, setOpen] = useState(false);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    async function load() {
-      if (!tenantId) { setLoading(false); return; }
-      const token = await getToken();
-      if (!token) { setLoading(false); return; }
+  const { data: members, loading, refetch } = useApiQuery<Member[]>("/team/list", {
+    transform: (raw: unknown) => (raw as { members: Member[] }).members,
+  });
 
-      const res = await globalThis.fetch(`/api/team/list?tenant_id=${tenantId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        setMembers(data.members);
-      }
-      setLoading(false);
-    }
-    load();
-  }, [tenantId, getToken]);
+  const allMembers = members ?? [];
 
   const handleInvite = async () => {
     setInviting(true);
@@ -79,7 +65,7 @@ export default function TeamSettingsPage() {
     const token = await getToken();
     if (!token || !tenantId) return;
 
-    const res = await globalThis.fetch("/api/team/invite", {
+    const res = await fetch("/api/team/invite", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,
@@ -91,14 +77,8 @@ export default function TeamSettingsPage() {
     if (res.ok) {
       setOpen(false);
       setEmail("");
-      // Re-fetch members
-      const listRes = await globalThis.fetch(`/api/team/list?tenant_id=${tenantId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (listRes.ok) {
-        const data = await listRes.json();
-        setMembers(data.members);
-      }
+      invalidateCache("/team");
+      refetch();
     } else {
       const data = await res.json();
       setError(data.error || "Failed to send invite");
@@ -161,7 +141,7 @@ export default function TeamSettingsPage() {
         )}
       </div>
 
-      {members.length === 0 ? (
+      {allMembers.length === 0 ? (
         <EmptyState
           icon={Users}
           title="Just you for now"
@@ -169,7 +149,7 @@ export default function TeamSettingsPage() {
         />
       ) : (
         <div className="space-y-2">
-          {members.map((m) => (
+          {allMembers.map((m) => (
             <Card key={m.membership_id}>
               <CardContent className="flex items-center justify-between p-4">
                 <div className="space-y-0.5">

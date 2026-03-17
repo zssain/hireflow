@@ -1,13 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Users } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { CandidateCard } from "@/components/candidates/candidate-card";
 import { EmptyState } from "@/components/shared/empty-state";
 import { LoadingSkeleton } from "@/components/shared/loading-skeleton";
-import { useAuth } from "@/hooks/use-auth";
-import { useTenant } from "@/hooks/use-tenant";
+import { useApiQuery } from "@/hooks/use-api-query";
 
 interface AppSummary {
   application_id: string;
@@ -22,39 +21,21 @@ interface AppSummary {
 }
 
 export default function CandidatesPage() {
-  const { getToken } = useAuth();
-  const { tenantId } = useTenant();
-  const [applications, setApplications] = useState<AppSummary[]>([]);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
 
-  useEffect(() => {
-    async function fetch() {
-      if (!tenantId) { setLoading(false); return; }
-      const token = await getToken();
-      if (!token) { setLoading(false); return; }
+  const { data: applications, loading } = useApiQuery<AppSummary[]>("/applications", {
+    transform: (raw: unknown) => (raw as { applications: AppSummary[] }).applications,
+  });
 
-      const res = await globalThis.fetch(`/api/applications?tenant_id=${tenantId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        setApplications(data.applications);
-      }
-      setLoading(false);
-    }
-    fetch();
-  }, [tenantId, getToken]);
-
+  const allApps = applications ?? [];
   const filtered = search
-    ? applications.filter(
+    ? allApps.filter(
         (a) =>
           a.candidate_name.toLowerCase().includes(search.toLowerCase()) ||
           a.candidate_email.toLowerCase().includes(search.toLowerCase()) ||
           a.job_title.toLowerCase().includes(search.toLowerCase())
       )
-    : applications;
+    : allApps;
 
   if (loading) return <LoadingSkeleton rows={5} />;
 

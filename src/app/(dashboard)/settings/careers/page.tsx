@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 import { Globe, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/hooks/use-auth";
 import { useTenant } from "@/hooks/use-tenant";
+import { useApiQuery, invalidateCache } from "@/hooks/use-api-query";
 
 export default function CareerPageSettingsPage() {
   const { getToken } = useAuth();
@@ -20,26 +21,19 @@ export default function CareerPageSettingsPage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
+  const { data: tenant } = useApiQuery<Record<string, unknown>>("/tenant/settings");
+
+  // Sync form state when tenant data loads
   useEffect(() => {
-    async function load() {
-      if (!tenantId) return;
-      const token = await getToken();
-      if (!token) return;
-
-      const res = await globalThis.fetch(`/api/tenant/settings?tenant_id=${tenantId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (res.ok) {
-        const tenant = await res.json();
-        setEnabled(tenant.career_page?.enabled ?? false);
-        setIntro(tenant.career_page?.intro ?? "");
-        setSlug(tenant.slug ?? "");
-        setPrimaryColor(tenant.branding?.primary_color ?? "#2563eb");
-      }
+    if (tenant) {
+      const careerPage = tenant.career_page as Record<string, unknown> | undefined;
+      const branding = tenant.branding as Record<string, unknown> | undefined;
+      setEnabled((careerPage?.enabled as boolean) ?? false);
+      setIntro((careerPage?.intro as string) ?? "");
+      setSlug((tenant.slug as string) ?? "");
+      setPrimaryColor((branding?.primary_color as string) ?? "#2563eb");
     }
-    load();
-  }, [tenantId, getToken]);
+  }, [tenant]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -48,7 +42,7 @@ export default function CareerPageSettingsPage() {
     const token = await getToken();
     if (!token || !tenantId) return;
 
-    const res = await globalThis.fetch("/api/tenant/settings", {
+    const res = await fetch("/api/tenant/settings", {
       method: "PATCH",
       headers: {
         Authorization: `Bearer ${token}`,
@@ -61,7 +55,10 @@ export default function CareerPageSettingsPage() {
       }),
     });
 
-    if (res.ok) setSaved(true);
+    if (res.ok) {
+      setSaved(true);
+      invalidateCache("/tenant/settings");
+    }
     setSaving(false);
     setTimeout(() => setSaved(false), 3000);
   };

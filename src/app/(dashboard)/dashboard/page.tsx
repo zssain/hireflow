@@ -1,13 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { Briefcase, Users, Calendar, FileText } from "lucide-react";
 import { WidgetCard } from "@/components/dashboard/widget-card";
 import { ActionCenter } from "@/components/dashboard/action-center";
 import { PipelineSnapshot } from "@/components/dashboard/pipeline-snapshot";
 import { LoadingSkeleton } from "@/components/shared/loading-skeleton";
-import { useAuth } from "@/hooks/use-auth";
 import { useTenant } from "@/hooks/use-tenant";
+import { useApiQuery } from "@/hooks/use-api-query";
 
 interface ActionItem {
   id: string;
@@ -18,43 +17,27 @@ interface ActionItem {
 }
 
 export default function DashboardPage() {
-  const { getToken } = useAuth();
-  const { tenantId, tenantName } = useTenant();
-  const [metrics, setMetrics] = useState<Record<string, number> | null>(null);
-  const [funnel, setFunnel] = useState<Array<{ name: string; count: number }>>([]);
-  const [actions, setActions] = useState<ActionItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { tenantName } = useTenant();
 
-  useEffect(() => {
-    async function load() {
-      if (!tenantId) {
-        // No tenant selected yet — show empty dashboard instead of infinite loading
-        setLoading(false);
-        return;
-      }
-      const token = await getToken();
-      if (!token) { setLoading(false); return; }
+  const { data: metrics, loading: metricsLoading } = useApiQuery<Record<string, number>>(
+    "/analytics/dashboard"
+  );
 
-      const [metricsRes, funnelRes, appsRes] = await Promise.all([
-        globalThis.fetch(`/api/analytics/dashboard?tenant_id=${tenantId}`, { headers: { Authorization: `Bearer ${token}` } }),
-        globalThis.fetch(`/api/analytics/funnel?tenant_id=${tenantId}`, { headers: { Authorization: `Bearer ${token}` } }),
-        globalThis.fetch(`/api/applications?tenant_id=${tenantId}&status=active`, { headers: { Authorization: `Bearer ${token}` } }),
-      ]);
+  const { data: funnel, loading: funnelLoading } = useApiQuery<Array<{ name: string; count: number }>>(
+    "/analytics/funnel",
+    { transform: (raw: unknown) => (raw as { stages: Array<{ name: string; count: number }> }).stages }
+  );
 
-      if (metricsRes.ok) setMetrics(await metricsRes.json());
-      if (funnelRes.ok) { const data = await funnelRes.json(); setFunnel(data.stages); }
+  const { data: actions, loading: actionsLoading } = useApiQuery<ActionItem[]>(
+    "/applications?status=active",
+    {
+      transform: (raw: unknown) => {
+        const apps = (raw as { applications: Record<string, unknown>[] }).applications ?? [];
+        const items: ActionItem[] = [];
 
-      // Build action items from real data
-      const actionItems: ActionItem[] = [];
-
-      if (appsRes.ok) {
-        const appsData = await appsRes.json();
-        const apps = appsData.applications ?? [];
-
-        // Candidates needing manual review
-        const needsReview = apps.filter((a: Record<string, unknown>) => a.manual_review_required && a.parse_status !== "processed");
+        const needsReview = apps.filter((a) => a.manual_review_required && a.parse_status !== "processed");
         for (const app of needsReview.slice(0, 3)) {
-          actionItems.push({
+          items.push({
             id: `review-${app.application_id}`,
             type: "review",
             title: `Review: ${app.candidate_name}`,
@@ -63,10 +46,9 @@ export default function DashboardPage() {
           });
         }
 
-        // Pending scoring
-        const pendingScore = apps.filter((a: Record<string, unknown>) => a.score_status === "pending");
+        const pendingScore = apps.filter((a) => a.score_status === "pending");
         if (pendingScore.length > 0) {
-          actionItems.push({
+          items.push({
             id: "pending-scores",
             type: "review",
             title: `${pendingScore.length} candidate${pendingScore.length > 1 ? "s" : ""} pending scoring`,
@@ -74,13 +56,13 @@ export default function DashboardPage() {
             href: "/candidates",
           });
         }
-      }
 
-      setActions(actionItems);
-      setLoading(false);
+        return items;
+      },
     }
-    load();
-  }, [tenantId, getToken]);
+  );
+
+  const loading = metricsLoading && funnelLoading && actionsLoading;
 
   if (loading) return <LoadingSkeleton variant="card" rows={4} />;
 
@@ -96,8 +78,8 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <ActionCenter items={actions} />
-        {funnel.length > 0 && <PipelineSnapshot stages={funnel} />}
+        <ActionCenter items={actions ?? []} />
+        {funnel && funnel.length > 0 && <PipelineSnapshot stages={funnel} />}
       </div>
     </div>
   );

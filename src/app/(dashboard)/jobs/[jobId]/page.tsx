@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Pencil, Globe, Lock, Play, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { useAuth } from "@/hooks/use-auth";
 import { useTenant } from "@/hooks/use-tenant";
 import { useMembership } from "@/hooks/use-membership";
+import { useApiQuery, invalidateCache } from "@/hooks/use-api-query";
 
 interface JobDetail {
   job_id: string;
@@ -31,38 +32,45 @@ interface Pipeline {
   stages: Array<{ stage_id: string; name: string; order: number }>;
 }
 
+interface ApplicationSummary {
+  application_id: string;
+  candidate_name: string;
+  score_total: number | null;
+  current_stage_id: string;
+}
+
 export default function JobDetailPage() {
   const params = useParams();
   const router = useRouter();
   const { getToken } = useAuth();
   const { tenantId } = useTenant();
   const { can } = useMembership();
-  const [job, setJob] = useState<JobDetail | null>(null);
-  const [pipeline, setPipeline] = useState<Pipeline | null>(null);
-  const [loading, setLoading] = useState(true);
   const [confirmAction, setConfirmAction] = useState<"publish" | "close" | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
 
   const jobId = params.jobId as string;
 
-  useEffect(() => {
-    async function fetchJob() {
-      const token = await getToken();
-      if (!token || !tenantId) return;
+  const { data: jobData, loading: jobLoading, refetch: refetchJob } = useApiQuery<{ job: JobDetail; pipeline: Pipeline }>(
+    `/jobs/${jobId}`
+  );
 
-      const res = await fetch(`/api/jobs/${jobId}?tenant_id=${tenantId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        setJob(data.job);
-        setPipeline(data.pipeline);
-      }
-      setLoading(false);
+  const { data: applications, loading: appsLoading } = useApiQuery<ApplicationSummary[]>(
+    `/applications?job_id=${jobId}`,
+    {
+      transform: (raw: unknown) => {
+        const appsData = raw as { applications: Record<string, unknown>[] };
+        return (appsData.applications ?? []).map((a) => ({
+          application_id: a.application_id as string,
+          candidate_name: a.candidate_name as string,
+          score_total: a.score_total as number | null,
+          current_stage_id: a.current_stage_id as string,
+        }));
+      },
     }
-    fetchJob();
-  }, [jobId, tenantId, getToken]);
+  );
+
+  const job = jobData?.job ?? null;
+  const pipeline = jobData?.pipeline ?? null;
 
   const handleAction = async (action: "publish" | "close") => {
     setActionLoading(true);
@@ -76,14 +84,14 @@ export default function JobDetailPage() {
     });
 
     if (res.ok) {
-      const data = await res.json();
-      setJob((prev) => (prev ? { ...prev, status: data.status } : prev));
+      invalidateCache("/jobs");
+      refetchJob();
     }
     setActionLoading(false);
     setConfirmAction(null);
   };
 
-  if (loading) return <LoadingSkeleton variant="detail" />;
+  if (jobLoading && appsLoading) return <LoadingSkeleton variant="detail" />;
   if (!job) return <div className="flex min-h-[400px] items-center justify-center text-muted-foreground">Job not found</div>;
 
   const statusColors: Record<string, string> = {
@@ -139,14 +147,14 @@ export default function JobDetailPage() {
 
       <Tabs defaultValue="pipeline">
         <TabsList>
-          <TabsTrigger value="pipeline">Pipeline</TabsTrigger>
+          <TabsTrigger value="pipeline">Pipeline ({(applications ?? []).length})</TabsTrigger>
           <TabsTrigger value="details">Details</TabsTrigger>
         </TabsList>
         <TabsContent value="pipeline" className="pt-4">
           {pipeline ? (
             <PipelineBoard
               stages={pipeline.stages}
-              applications={[]}
+              applications={applications ?? []}
               onApplicationClick={(id) => router.push(`/candidates/${id}`)}
             />
           ) : (
